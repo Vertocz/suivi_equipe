@@ -315,8 +315,8 @@ def afficher_page_joueuse(user: dict):
                 st.error(f"Erreur lors de l'enregistrement : {e}")
         graph_suivi_sportif(st.session_state.user)
 
-    elif choix == "Suivi forme quotidienne":
-        st.subheader("Suivi forme quotidienne 🧘‍♀️")
+    elif choix == "Suivi de forme quotidienne":
+        st.subheader("Suivi de forme quotidienne 🧘‍♀️")
         st.write("Évalue ton état général du jour 👇")
 
         with st.form("form_suivi_forme"):

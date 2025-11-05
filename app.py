@@ -8,6 +8,10 @@ import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
 
+st.set_page_config(
+    page_title="Pôle France Parabasket Adapté",   # Titre de l'onglet
+    page_icon="🏀",              # Emoji ou chemin vers un fichier image (.png, .ico)
+)
 
 # --- Initialisation de la session ---
 if "user" not in st.session_state:

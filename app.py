@@ -161,6 +161,102 @@ def graph_suivi_sportif(joueuse):
             # --- Affichage UNIQUE du graphique ---
             st.plotly_chart(fig, use_container_width=True, key="graphique_suivi")
 
+def graph_suivi_forme(joueuse):
+    """Affiche le suivi quotidien de forme sur 30 jours (fatigue, sommeil, douleur, stress, humeur)."""
+
+    try:
+        data = (
+            supabase.table("suivi_forme")
+            .select("*")
+            .eq("joueuse_id", joueuse["id"])
+            .order("date", desc=False)
+            .execute()
+            .data
+        )
+    except Exception as e:
+        st.error(f"Erreur lors du chargement : {e}")
+        return
+
+    if not data:
+        st.info("Aucune donnée enregistrée.")
+        return
+
+    # --- Filtrer sur les 30 derniers jours ---
+    today = date.today()
+    thirty_days_ago = today - timedelta(days=30)
+    data_30j = [a for a in data if pd.to_datetime(a["date"]).date() >= thirty_days_ago]
+
+    if not data_30j:
+        st.info("Aucune donnée enregistrée dans les 30 derniers jours.")
+        return
+
+    # --- DataFrame ---
+    df = pd.DataFrame(data_30j)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+
+    # --- Moyennes par jour ---
+    df_avg = df.groupby("date").agg({
+        "fatigue": "mean",
+        "sommeil": "mean",
+        "douleur": "mean",
+        "stress": "mean",
+        "humeur": "mean",
+    }).reset_index()
+
+    fig = go.Figure()
+
+    # --- Traces lignes des moyennes ---
+    infos = {
+        "fatigue": "Fatigue",
+        "sommeil": "Sommeil",
+        "douleur": "Douleur",
+        "stress": "Stress",
+        "humeur": "Humeur",
+    }
+
+    for key, label in infos.items():
+        fig.add_trace(go.Scatter(
+            x=df_avg["date"],
+            y=df_avg[key],
+            mode="lines+markers",
+            line=dict(dash="dash"),
+            name=f"{label} (moy)",
+            hoverinfo="skip"
+        ))
+
+    # --- Points journaliers détaillés ---
+    fig.add_trace(go.Scatter(
+        x=df["date"],
+        y=df["fatigue"],
+        mode="markers",
+        marker=dict(size=10),
+        name="Points journaliers",
+        customdata=df[["sommeil", "douleur", "stress", "humeur", "commentaire"]],
+        hovertemplate=(
+            "<b>%{x|%d/%m}</b><br>"
+            "Fatigue: %{y}<br>"
+            "Sommeil: %{customdata[0]}<br>"
+            "Douleur: %{customdata[1]}<br>"
+            "Stress: %{customdata[2]}<br>"
+            "Humeur: %{customdata[3]}<br>"
+            "%{customdata[4]}<extra></extra>"
+        )
+    ))
+
+    # --- Mise en forme ---
+    fig.update_layout(
+        xaxis=dict(title="Date"),
+        yaxis=dict(title="Score (1–5)", range=[0.5, 5.5]),
+        template="plotly_white",
+        hovermode="closest",
+        height=500,
+        margin=dict(l=40, r=40, t=60, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def verifier_utilisateur(numero: str):
     """Vérifie si le numéro appartient à une joueuse ou un membre du staff."""
     try:
@@ -177,7 +273,7 @@ def verifier_utilisateur(numero: str):
 
 def afficher_page_joueuse(user: dict):
     """Affiche la page dédiée aux joueuses."""
-    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif"])
+    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif", "Suivi de forme quotidienne"])
     if choix == "Billets de train":
         st.subheader("Billets et Carte Avantage")
         afficher_billets(user)
@@ -189,7 +285,7 @@ def afficher_page_joueuse(user: dict):
         with st.form("form_activite"):
             sport = st.selectbox(
                     "Sport pratiqué",
-                    ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "Autre"]
+                    ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "⚽Football", "Autre"]
                 )
             duree = st.text_input("⏱️Durée")
             difficulte = st.slider("Difficulté ressentie (1 = 😁, 10 = 🥵)", 1, 10, 5)
@@ -219,6 +315,40 @@ def afficher_page_joueuse(user: dict):
                 st.error(f"Erreur lors de l'enregistrement : {e}")
         graph_suivi_sportif(st.session_state.user)
 
+    elif choix == "Suivi forme quotidienne":
+        st.subheader("Suivi forme quotidienne 🧘‍♀️")
+        st.write("Évalue ton état général du jour 👇")
+
+        with st.form("form_suivi_forme"):
+            date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
+            fatigue = st.slider("😴 Fatigue générale (1 = 🫩toujours fatigué, 5 = 😊très frais)", 1, 5, 3)
+            sommeil = st.slider("🛌 Qualité du sommeil (1 = 👀insomnie, 5 = 💤très reposant)", 1, 5, 3)
+            douleur = st.slider("💪 Douleurs musculaires (1 = 😖très douloureux, 5 = 😎aucune douleur)", 1, 5, 3)
+            stress = st.slider("😰 Niveau de stress (1 = 😧très stressé, 5 = 🧘‍♀️très détendu)", 1, 5, 3)
+            humeur = st.slider("😊 Humeur générale (1 = 😡contrarié, irritable, déprimé, 5 = 🥳très positif)", 1, 5, 3)
+            commentaire = st.text_area("🗣️ Commentaire (facultatif)")
+            submitted = st.form_submit_button("Enregistrer")
+
+        if submitted:
+            try:
+                data = {
+                    "joueuse_id": user["id"],
+                    "date": date_suivi.isoformat(),
+                    "fatigue": fatigue,
+                    "sommeil": sommeil,
+                    "douleur": douleur,
+                    "stress": stress,
+                    "humeur": humeur,
+                    "commentaire": commentaire,
+                }
+
+                supabase.table("suivi_forme").insert(data).execute()
+                st.success("✅ Suivi enregistré avec succès !")
+
+            except Exception as e:
+                st.error(f"Erreur lors de l'enregistrement : {e}")
+        graph_suivi_forme(st.session_state.user)
+
 def afficher_page_staff(user: dict):
     """Affiche la page dédiée au staff."""
     if user["numero_tel"] == os.getenv("MON_NUMERO"):
@@ -230,7 +360,7 @@ def afficher_page_staff(user: dict):
             time.sleep(3)
             placeholder.empty()
 
-    choix = st.radio("Que voulez-vous faire ?", ["Voir mes billets de train", "Consulter les suivis sportifs"])
+    choix = st.radio("Que voulez-vous faire ?", ["Voir mes billets de train", "Consulter les suivis sportifs", "Consulter les suivis de forme quotidienne"])
     if choix == "Voir mes billets de train":
         afficher_billets(user)
     elif choix == "Consulter les suivis sportifs":
@@ -271,6 +401,46 @@ def afficher_page_staff(user: dict):
         if joueuse_selectionnee:
             st.markdown(f"### 📈 Suivi de {choix_joueuse}")
             graph_suivi_sportif(joueuse_selectionnee)
+
+    elif choix == "Consulter les suivis de forme quotidienne":
+        st.subheader("Suivi des joueuses")
+        st.write("📊 Sélectionnez une joueuse pour consulter son suivi de forme quotidienne.")
+
+        # --- Récupération des joueuses en fonction du staff ---
+        try:
+            query = supabase.table("joueuses").select("id, prenom, nom, categorie")
+
+            # Cas 1 → staff masculin uniquement
+            if user.get("masculin") and not user.get("feminin"):
+                query = query.eq("categorie", "masculin")
+
+            # Cas 2 → staff féminin uniquement
+            elif user.get("feminin") and not user.get("masculin"):
+                query = query.eq("categorie", "feminin")
+
+            # Cas 3 → staff sur les deux → pas de filtre
+
+            joueuses = query.order("prenom", desc=False).execute().data
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des joueuses/joueurs : {e}")
+            return
+
+        if not joueuses:
+            st.warning("Aucune joueuse trouvée dans la base de données.")
+            return
+
+        # --- Liste déroulante des joueuses ---
+        noms_joueuses = [f"{j['prenom']} {j['nom']}" for j in joueuses]
+        choix_joueuse = st.selectbox("Choisissez une joueuse :", options=noms_joueuses)
+
+        # --- Trouver la joueuse sélectionnée ---
+        joueuse_selectionnee = next((j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None)
+
+        if joueuse_selectionnee:
+            st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            graph_suivi_forme(joueuse_selectionnee)
+
 
 # --- Page d'accueil ---
 st.title("Pôle France Para Basketball Adapté")

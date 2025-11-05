@@ -177,7 +177,7 @@ def verifier_utilisateur(numero: str):
 
 def afficher_page_joueuse(user: dict):
     """Affiche la page dédiée aux joueuses."""
-    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif"])
+    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif", "Suivi de forme quotidienne"])
     if choix == "Billets de train":
         st.subheader("Billets et Carte Avantage")
         afficher_billets(user)
@@ -219,6 +219,40 @@ def afficher_page_joueuse(user: dict):
                 st.error(f"Erreur lors de l'enregistrement : {e}")
         graph_suivi_sportif(st.session_state.user)
 
+    elif choix == "Suivi forme quotidienne":
+        st.subheader("Suivi forme quotidienne 🧘‍♀️")
+        st.write("Évalue ton état général du jour 👇")
+
+        with st.form("form_suivi_forme"):
+            date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
+            fatigue = st.slider("😴 Fatigue générale (1 = 🫩toujours fatigué, 5 = 😊très frais)", 1, 5, 3)
+            sommeil = st.slider("🛌 Qualité du sommeil (1 = 👀insomnie, 5 = 💤très reposant)", 1, 5, 3)
+            douleur = st.slider("💪 Douleurs musculaires (1 = 😖très douloureux, 5 = 😎aucune douleur)", 1, 5, 3)
+            stress = st.slider("😰 Niveau de stress (1 = 😧très stressé, 5 = 🧘‍♀️très détendu)", 1, 5, 3)
+            humeur = st.slider("😊 Humeur générale (1 = 😡contrarié, irritable, déprimé, 5 = 🥳très positif)", 1, 5, 3)
+            commentaire = st.text_area("🗣️ Commentaire (facultatif)")
+            submitted = st.form_submit_button("Enregistrer")
+
+        if submitted:
+            try:
+                data = {
+                    "joueuse_id": user["id"],
+                    "date": date_suivi.isoformat(),
+                    "fatigue": fatigue,
+                    "sommeil": sommeil,
+                    "douleur": douleur,
+                    "stress": stress,
+                    "humeur": humeur,
+                    "commentaire": commentaire,
+                }
+
+                supabase.table("suivi_forme").insert(data).execute()
+                st.success("✅ Suivi enregistré avec succès !")
+
+            except Exception as e:
+                st.error(f"Erreur lors de l'enregistrement : {e}")
+
+
 def afficher_page_staff(user: dict):
     """Affiche la page dédiée au staff."""
     if user["numero_tel"] == os.getenv("MON_NUMERO"):
@@ -230,7 +264,7 @@ def afficher_page_staff(user: dict):
             time.sleep(3)
             placeholder.empty()
 
-    choix = st.radio("Que voulez-vous faire ?", ["Voir mes billets de train", "Consulter les suivis sportifs"])
+    choix = st.radio("Que voulez-vous faire ?", ["Voir mes billets de train", "Consulter les suivis sportifs", "Consulter les suivis de forme quotidienne"])
     if choix == "Voir mes billets de train":
         afficher_billets(user)
     elif choix == "Consulter les suivis sportifs":

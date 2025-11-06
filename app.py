@@ -164,6 +164,23 @@ def graph_suivi_sportif(joueuse):
 
             # --- Affichage UNIQUE du graphique ---
             st.plotly_chart(fig, use_container_width=True, key="graphique_suivi")
+            
+        # --- Affichage des enregistrements récents ---
+        st.subheader("📋 Historique des séances")
+    
+        # Trier du plus récent au plus ancien
+        df_sorted = df.sort_values("date", ascending=False)
+    
+        for _, row in df_sorted.iterrows():
+            st.markdown(f"""
+            **🗓️ {row['date'].strftime('%d/%m/%Y')} — {row['sport']}**
+            - ⏱️ Durée : {row['duree']}
+            - 💪 Difficulté : {row['difficulte']}/10
+            - 😄 Plaisir : {row['plaisir']}/10
+            - 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
+            """)
+            st.divider()
+
 
 def graph_suivi_forme(joueuse):
     """Affiche le suivi quotidien de forme sur 30 jours (fatigue, sommeil, douleur, stress, humeur)."""
@@ -260,6 +277,23 @@ def graph_suivi_forme(joueuse):
 
     st.plotly_chart(fig, use_container_width=True)
 
+        # --- Historique du suivi de forme ---
+    st.subheader("📋 Historique du suivi de forme")
+
+    df_sorted = df.sort_values("date", ascending=False)
+
+    for _, row in df_sorted.iterrows():
+        st.markdown(f"""
+        **🗓️ {row['date'].strftime('%d/%m/%Y')}**
+        - 😴 Sommeil : {row.get('sommeil', '–')}/5
+        - 💤 Fatigue : {row.get('fatigue', '–')}/5
+        - 🤕 Douleur : {row.get('douleur', '–')}/5
+        - 😰 Stress : {row.get('stress', '–')}/5
+        - 🙂 Humeur : {row.get('humeur', '–')}/5
+        - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
+        """)
+        st.divider()
+
 
 def verifier_utilisateur(numero: str):
     """Vérifie si le numéro appartient à une joueuse ou un membre du staff."""
@@ -325,10 +359,10 @@ def afficher_page_joueuse(user: dict):
 
         with st.form("form_suivi_forme"):
             date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
-            fatigue = st.slider("😴 Fatigue générale (1 = 🫩toujours fatigué, 5 = 😊très frais)", 1, 5, 3)
+            fatigue = st.slider("😴 Fatigue générale (1 = 😊très frais, 5 = 🫩toujours fatigué)", 1, 5, 3)
             sommeil = st.slider("🛌 Qualité du sommeil (1 = 👀insomnie, 5 = 💤très reposant)", 1, 5, 3)
-            douleur = st.slider("💪 Douleurs musculaires (1 = 😖très douloureux, 5 = 😎aucune douleur)", 1, 5, 3)
-            stress = st.slider("😰 Niveau de stress (1 = 😧très stressé, 5 = 🧘‍♀️très détendu)", 1, 5, 3)
+            douleur = st.slider("💪 Douleurs musculaires (1 = 😎aucune douleur, 5 = 😖très douloureux)", 1, 5, 3)
+            stress = st.slider("😰 Niveau de stress (1 = 🧘‍♀️très détendu, 5 = 😧très stressé)", 1, 5, 3)
             humeur = st.slider("😊 Humeur générale (1 = 😡contrarié, irritable, déprimé, 5 = 🥳très positif)", 1, 5, 3)
             commentaire = st.text_area("🗣️ Commentaire (facultatif)")
             submitted = st.form_submit_button("Enregistrer")

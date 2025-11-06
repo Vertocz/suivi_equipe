@@ -256,7 +256,7 @@ def graph_suivi_forme(joueuse):
         fig.add_trace(go.Scatter(
             x=df_avg["date"],
             y=df_avg[key],
-            mode="lines",
+            mode="lines+markers",
             line=dict(dash="dash"),
             name=f"{label}",
             hoverinfo="skip"

@@ -92,7 +92,7 @@ def graph_suivi_sportif(joueuse):
             fig.add_trace(go.Scatter(
                 x=df_avg["date"],
                 y=df_avg["plaisir"],
-                mode="lines+markers",
+                mode="lines",
                 line=dict(color="green", dash="dash"),
                 marker=dict(color="green"),
                 name="",  # Pas de légende
@@ -105,7 +105,7 @@ def graph_suivi_sportif(joueuse):
             fig.add_trace(go.Scatter(
                 x=df_avg["date"],
                 y=df_avg["difficulte"],
-                mode="lines+markers",
+                mode="lines",
                 line=dict(color="red", dash="dash"),
                 marker=dict(color="red"),
                 name="",  # Pas de légende
@@ -179,6 +179,16 @@ def graph_suivi_sportif(joueuse):
             - 😄 Plaisir : {row['plaisir']}/10
             - 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
             """)
+                # --- Bouton de suppression ---
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+                confirm = st.warning("⚠️ Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+                if st.button("Oui, supprimer définitivement", key=f"conf_suppr_{row['id']}"):
+                    try:
+                        supabase.table("activites").delete().eq("id", row["id"]).execute()
+                        st.success("✅ Activité supprimée.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de la suppression : {e}")
             st.divider()
 
 
@@ -239,7 +249,7 @@ def graph_suivi_forme(joueuse):
         fig.add_trace(go.Scatter(
             x=df_avg["date"],
             y=df_avg[key],
-            mode="lines+markers",
+            mode="markers",
             line=dict(dash="dash"),
             name=f"{label} (moy)",
             hoverinfo="skip"
@@ -267,7 +277,7 @@ def graph_suivi_forme(joueuse):
     # --- Mise en forme ---
     fig.update_layout(
         xaxis=dict(title="Date"),
-        yaxis=dict(title="Score (1–5)", range=[0.5, 5.5]),
+        yaxis=dict(title="Score (1–5)", range=[0, 5.5]),
         template="plotly_white",
         hovermode="closest",
         height=500,
@@ -292,6 +302,16 @@ def graph_suivi_forme(joueuse):
         - 🙂 Humeur : {row.get('humeur', '–')}/5
         - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
         """)
+            # --- Bouton de suppression ---
+        if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+            confirm = st.warning("⚠️ Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+            if st.button("Oui, supprimer définitivement", key=f"conf_suppr_{row['id']}"):
+                try:
+                    supabase.table("activites").delete().eq("id", row["id"]).execute()
+                    st.success("✅ Activité supprimée.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur lors de la suppression : {e}")
         st.divider()
 
 

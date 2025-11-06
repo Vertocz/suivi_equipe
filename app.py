@@ -181,14 +181,20 @@ def graph_suivi_sportif(joueuse):
             """)
                 # --- Bouton de suppression ---
             if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
-                confirm = st.warning("⚠️ Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
-                if st.button("Oui, supprimer définitivement", key=f"conf_suppr_{row['id']}"):
-                    try:
-                        supabase.table("activites").delete().eq("id", row["id"]).execute()
-                        st.success("✅ Activité supprimée.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erreur lors de la suppression : {e}")
+                st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+            
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                        try:
+                            supabase.table("activites").delete().eq("id", row["id"]).execute()
+                            st.success("✅ Activité supprimée.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erreur lors de la suppression : {e}")
+                with col2:
+                    if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                        st.info("Suppression annulée.")
             st.divider()
 
 
@@ -255,25 +261,6 @@ def graph_suivi_forme(joueuse):
             hoverinfo="skip"
         ))
 
-    # --- Points journaliers détaillés ---
-    fig.add_trace(go.Scatter(
-        x=df["date"],
-        y=df["fatigue"],
-        mode="markers",
-        marker=dict(size=10),
-        name="Points journaliers",
-        customdata=df[["sommeil", "douleur", "stress", "humeur", "commentaire"]],
-        hovertemplate=(
-            "<b>%{x|%d/%m}</b><br>"
-            "Fatigue: %{y}<br>"
-            "Sommeil: %{customdata[0]}<br>"
-            "Douleur: %{customdata[1]}<br>"
-            "Stress: %{customdata[2]}<br>"
-            "Humeur: %{customdata[3]}<br>"
-            "%{customdata[4]}<extra></extra>"
-        )
-    ))
-
     # --- Mise en forme ---
     fig.update_layout(
         xaxis=dict(title="Date"),
@@ -303,15 +290,22 @@ def graph_suivi_forme(joueuse):
         - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
         """)
             # --- Bouton de suppression ---
+                # --- Bouton de suppression ---
         if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
-            confirm = st.warning("⚠️ Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
-            if st.button("Oui, supprimer définitivement", key=f"conf_suppr_{row['id']}"):
-                try:
-                    supabase.table("activites").delete().eq("id", row["id"]).execute()
-                    st.success("✅ Activité supprimée.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erreur lors de la suppression : {e}")
+            st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+        
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                    try:
+                        supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
+                        st.success("✅ Activité supprimée.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de la suppression : {e}")
+            with col2:
+                if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                    st.info("Suppression annulée.")
         st.divider()
 
 

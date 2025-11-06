@@ -259,7 +259,7 @@ def graph_suivi_forme(joueuse):
             mode="lines",
             line=dict(dash="dash"),
             name=f"{label}",
-            info="skip"
+            hoverinfo="skip"
         ))
 
     # --- Mise en forme ---

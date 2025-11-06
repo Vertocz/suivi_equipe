@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
@@ -282,11 +283,11 @@ def graph_suivi_forme(joueuse):
     for _, row in df_sorted.iterrows():
         st.markdown(f"""
         **🗓️ {row['date'].strftime('%d/%m/%Y')}**
-        - 😴 Sommeil : {row.get('sommeil', '–')}/5
-        - 💤 Fatigue : {row.get('fatigue', '–')}/5
-        - 🤕 Douleur : {row.get('douleur', '–')}/5
-        - 😰 Stress : {row.get('stress', '–')}/5
-        - 🙂 Humeur : {row.get('humeur', '–')}/5
+        - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
+        - 😴 Fatigue générale : {row.get('fatigue', '–')}/5
+        - 💪 Douleurs musculaires : {row.get('douleur', '–')}/5
+        - 😰 Niveau de stress : {row.get('stress', '–')}/5
+        - 🙂 Humeur générale : {row.get('humeur', '–')}/5
         - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
         """)
             # --- Bouton de suppression ---
@@ -340,10 +341,10 @@ def afficher_page_joueuse(user: dict):
                     ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "⚽Football", "Autre"]
                 )
             duree = st.text_input("⏱️Durée")
-            difficulte = st.slider("Difficulté ressentie (1 = 😁, 10 = 🥵)", 1, 10, 5)
-            plaisir = st.slider("Plaisir pris (1 = 😡, 10 = 🥰)", 1, 10, 5)
+            difficulte = st.slider("Difficulté ressentie (😁 -> 🥵)", 1, 10, 5)
+            plaisir = st.slider("Plaisir pris (😡 -> 🥰)", 1, 10, 5)
             date_activite = st.date_input("📅Date de l'activité", date.today(), format="DD/MM/YYYY")
-            commentaire = st.text_area("🗣️Commentaires (facultatif)")
+            commentaire = st.text_area("🗣️Commentaires (si tu le souhaites)")
             submitted = st.form_submit_button("Enregistrer")
 
         # --- Traitement du formulaire ---
@@ -373,12 +374,12 @@ def afficher_page_joueuse(user: dict):
 
         with st.form("form_suivi_forme"):
             date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
-            fatigue = st.slider("😴 Fatigue générale (1 = 😊très frais, 5 = 🫩toujours fatigué)", 1, 5, 3)
-            sommeil = st.slider("🛌 Qualité du sommeil (1 = 👀insomnie, 5 = 💤très reposant)", 1, 5, 3)
-            douleur = st.slider("💪 Douleurs musculaires (1 = 😎aucune douleur, 5 = 😖très douloureux)", 1, 5, 3)
-            stress = st.slider("😰 Niveau de stress (1 = 🧘‍♀️très détendu, 5 = 😧très stressé)", 1, 5, 3)
-            humeur = st.slider("😊 Humeur générale (1 = 😡contrarié, irritable, déprimé, 5 = 🥳très positif)", 1, 5, 3)
-            commentaire = st.text_area("🗣️ Commentaire (facultatif)")
+            fatigue = st.slider("😴 Fatigue générale (😊très frais -> 🫩toujours fatigué)", 1, 5, 3)
+            sommeil = st.slider("🛌 Qualité du sommeil (👀insomnie -> 💤très reposant)", 1, 5, 3)
+            douleur = st.slider("💪 Douleurs musculaires (😎aucune douleur -> 😖très douloureux)", 1, 5, 3)
+            stress = st.slider("😰 Niveau de stress (🧘‍♀️très détendu -> 😧très stressé)", 1, 5, 3)
+            humeur = st.slider("😊 Humeur générale (😡contrarié, irritable, déprimé -> 🥳très positif)", 1, 5, 3)
+            commentaire = st.text_area("🗣️ Commentaire (si tu le souhaites)")
             submitted = st.form_submit_button("Enregistrer")
 
         if submitted:
@@ -498,7 +499,8 @@ def afficher_page_staff(user: dict):
 st.title("Pôle France Para Basketball Adapté")
 
 # --- Zone de connexion ---
-numero = st.text_input("📱Entrez votre numéro de téléphone", placeholder="Ex: 0612345678")
+phone = st.text_input("📱Entrez votre numéro de téléphone", placeholder="Ex: 0612345678").replace(" ", "")
+numero = re.sub('\++33', '0', phone)
 if st.button("🚪Accéder"):
     if len(numero) != 10 or not numero.startswith(("06", "07")):
         st.error("Numéro de téléphone invalide. Veuillez entrer un numéro français valide (10 chiffres, commence par 06 ou 07).")

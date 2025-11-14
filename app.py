@@ -285,7 +285,7 @@ def graph_suivi_forme(joueuse):
         **🗓️ {row['date'].strftime('%d/%m/%Y')}**
         - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
         - 😴 Fatigue générale : {row.get('fatigue', '–')}/5
-        - 💪 Douleurs musculaires : {row.get('douleur', '–')}/5
+        - 💪 Douleurs : {row.get('douleur', '–')}/5
         - 😰 Niveau de stress : {row.get('stress', '–')}/5
         - 🙂 Humeur générale : {row.get('humeur', '–')}/5
         - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}

@@ -5,14 +5,13 @@ import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
 from update_billets_from_storage import update_billets_from_storage
-from analyse import compute_charge, normalize_charge, compute_variability, correlation_difficulte_plaisir
 import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
 
 st.set_page_config(
-    page_title="Pôle France Parabasket Adapté",   # Titre de l'onglet
-    page_icon="🏀",              # Emoji ou chemin vers un fichier image (.png, .ico)
+    page_title="Pôle France Parabasket Adapté",
+    page_icon="🏀",
 )
 
 # --- Initialisation de la session ---
@@ -20,10 +19,10 @@ if "user" not in st.session_state:
     st.session_state.user = None
     st.session_state.type_user = None
 
+
 # --- Fonctions utilitaires ---
 def afficher_billets(user: dict):
-    """
-    Affiche tous les billets de train pour la joueuse depuis la table 'billets'.
+    """Affiche tous les billets de train pour la joueuse depuis la table 'billets'.
     Chaque billet est affiché avec un lien cliquable pour téléchargement.
     """
     billets = (
@@ -43,166 +42,155 @@ def afficher_billets(user: dict):
 
     for b in billets:
         st.markdown(f"**Billet : {b['nom_fichier']}**")
-        
+
         url = b.get("url_stockage")
         if not url:
             st.warning("Pas d'URL disponible pour ce billet.")
             continue
 
-        # Lien cliquable / téléchargement
         st.markdown(f"[Ouvrir / Télécharger le billet]({url})", unsafe_allow_html=True)
         st.divider()
+
 
 def graph_suivi_sportif(joueuse):
     activites = (
         supabase.table("activites")
         .select("*")
         .eq("joueuse_id", joueuse["id"])
-        .order("date", desc=False)  # Tri chronologique
+        .order("date", desc=False)
         .execute()
         .data
     )
 
     if not activites:
         st.info("Aucune activité enregistrée.")
-    else:
-        # --- Filtrer les 30 derniers jours ---
-        today = date.today()
-        thirty_days_ago = today - timedelta(days=30)
-        activites_30j = [
-            a for a in activites
-            if pd.to_datetime(a["date"]).date() >= thirty_days_ago
-        ]
+        return
 
-        if not activites_30j:
-            st.info("Aucune activité enregistrée dans les 30 derniers jours.")
-        else:
-            # --- Préparer le DataFrame ---
-            df = pd.DataFrame(activites_30j)
-            df["date"] = pd.to_datetime(df["date"]).dt.date
+    today = date.today()
+    thirty_days_ago = today - timedelta(days=30)
 
-            # --- Calculer les moyennes par jour ---
-            df_avg = df.groupby("date").agg({
-                "plaisir": "mean",
-                "difficulte": "mean"
-            }).reset_index()
+    activites_30j = [
+        a for a in activites
+        if pd.to_datetime(a["date"]).date() >= thirty_days_ago
+    ]
 
-            # --- Créer le graphique (UNE SEULE FOIS) ---
-            fig = go.Figure()
+    if not activites_30j:
+        st.info("Aucune activité enregistrée dans les 30 derniers jours.")
+        return
 
-            # --- Ligne moyenne plaisir (axe y1) ---
-            fig.add_trace(go.Scatter(
-                x=df_avg["date"],
-                y=df_avg["plaisir"],
-                mode="lines",
-                line=dict(color="green", dash="dash"),
-                marker=dict(color="green"),
-                name="",  # Pas de légende
-                yaxis="y1",
-                showlegend=False,
-                hoverinfo="skip",  # Désactive le survol
-            ))
+    df = pd.DataFrame(activites_30j)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
 
-            # --- Ligne moyenne difficulté (axe y2) ---
-            fig.add_trace(go.Scatter(
-                x=df_avg["date"],
-                y=df_avg["difficulte"],
-                mode="lines",
-                line=dict(color="red", dash="dash"),
-                marker=dict(color="red"),
-                name="",  # Pas de légende
-                yaxis="y2",
-                showlegend=False,  
-                hoverinfo="skip",  # Désactive le survol
-            ))
+    df_avg = df.groupby("date").agg({
+        "plaisir": "mean",
+        "difficulte": "mean"
+    }).reset_index()
 
-            # --- Points plaisir (axe y1) ---
-            fig.add_trace(go.Scatter(
-                x=df["date"],
-                y=df["plaisir"],
-                mode="markers",
-                marker=dict(color="green", size=10),
-                name="Plaisir séance",  # Légende pour les points
-                customdata=df[["sport", "duree", "commentaire"]],
-                hovertemplate=(
-                    "<b>%{x|%d/%m}</b><br>"
-                    "Plaisir: %{y}<br>"
-                    "Sport: %{customdata[0]}<br>"
-                    "Durée: %{customdata[1]}<br>"
-                    "%{customdata[2]}<extra></extra>"
-                ),
-                yaxis="y1",
-            ))
+    fig = go.Figure()
 
-            # --- Points difficulté (axe y2) ---
-            fig.add_trace(go.Scatter(
-                x=df["date"],
-                y=df["difficulte"],
-                mode="markers",
-                marker=dict(color="red", size=10),
-                name="Difficulté séance",  # Légende pour les points
-                customdata=df[["sport", "duree", "commentaire"]],
-                hovertemplate=(
-                    "<b>%{x|%d/%m}</b><br>"
-                    "Difficulté: %{y}<br>"
-                    "Sport: %{customdata[0]}<br>"
-                    "Durée: %{customdata[1]}<br>"
-                    "%{customdata[2]}<extra></extra>"
-                ),
-                yaxis="y2",
-            ))
+    fig.add_trace(go.Scatter(
+        x=df_avg["date"], y=df_avg["plaisir"],
+        mode="lines",
+        line=dict(color="green", dash="dash"),
+        marker=dict(color="green"),
+        name="",
+        yaxis="y1",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
 
-            # --- Mise en forme du graphique ---
-            fig.update_layout(
-                xaxis=dict(title="Date"),
-                yaxis=dict(title="Plaisir", range=[0, 10], side="left", color="green"),
-                yaxis2=dict(title="Difficulté", range=[0, 10], side="right", overlaying="y", color="red"),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                template="plotly_white",
-                hovermode="closest",
-                height=500,
-                margin=dict(l=40, r=40, t=60, b=20),
-            )
+    fig.add_trace(go.Scatter(
+        x=df_avg["date"], y=df_avg["difficulte"],
+        mode="lines",
+        line=dict(color="red", dash="dash"),
+        marker=dict(color="red"),
+        name="",
+        yaxis="y2",
+        showlegend=False,
+        hoverinfo="skip",
+    ))
 
-            # --- Affichage UNIQUE du graphique ---
-            st.plotly_chart(fig, use_container_width=True, key="graphique_suivi")
-            
-        # --- Affichage des enregistrements récents ---
-        st.subheader("📋 Historique des séances")
-    
-        # Trier du plus récent au plus ancien
-        df_sorted = df.sort_values("date", ascending=False)
-    
-        for _, row in df_sorted.iterrows():
-            st.markdown(f"""
-            **🗓️ {row['date'].strftime('%d/%m/%Y')} — {row['sport']}**
-            - ⏱️ Durée : {row['duree']}
-            - 💪 Difficulté : {row['difficulte']}/10
-            - 😄 Plaisir : {row['plaisir']}/10
-            - 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
-            """)
-                # --- Bouton de suppression ---
-            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
-                st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
-            
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
-                        try:
-                            supabase.table("activites").delete().eq("id", row["id"]).execute()
-                            st.success("✅ Activité supprimée.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erreur lors de la suppression : {e}")
-                with col2:
-                    if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
-                        st.info("Suppression annulée.")
+    fig.add_trace(go.Scatter(
+        x=df["date"], y=df["plaisir"],
+        mode="markers",
+        marker=dict(color="green", size=10),
+        name="Plaisir séance",
+        customdata=df[["sport", "duree", "commentaire"]],
+        hovertemplate=(
+            "<b>%{x|%d/%m}</b><br>"
+            "Plaisir: %{y}<br>"
+            "Sport: %{customdata[0]}<br>"
+            "Durée: %{customdata[1]}<br>"
+            "%{customdata[2]}<extra></extra>"
+        ),
+        yaxis="y1",
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=df["date"], y=df["difficulte"],
+        mode="markers",
+        marker=dict(color="red", size=10),
+        name="Difficulté séance",
+        customdata=df[["sport", "duree", "commentaire"]],
+        hovertemplate=(
+            "<b>%{x|%d/%m}</b><br>"
+            "Difficulté: %{y}<br>"
+            "Sport: %{customdata[0]}<br>"
+            "Durée: %{customdata[1]}<br>"
+            "%{customdata[2]}<extra></extra>"
+        ),
+        yaxis="y2",
+    ))
+
+    fig.update_layout(
+        xaxis=dict(title="Date"),
+        yaxis=dict(title="Plaisir", range=[0, 10], side="left", color="green"),
+        yaxis2=dict(title="Difficulté", range=[0, 10], side="right",
+                    overlaying="y", color="red"),
+        legend=dict(orientation="h", yanchor="bottom",
+                    y=1.02, xanchor="right", x=1),
+        template="plotly_white",
+        hovermode="closest",
+        height=500,
+        margin=dict(l=40, r=40, t=60, b=20),
+    )
+
+    st.plotly_chart(fig, use_container_width=True, key="graphique_suivi")
+
+    st.subheader("📋 Historique des séances")
+
+    df_sorted = df.sort_values("date", ascending=False)
+
+    for _, row in df_sorted.iterrows():
+        st.markdown(f"""
+**🗓️ {row['date'].strftime('%d/%m/%Y')} — {row['sport']}**
+- ⏱️ Durée : {row['duree']}
+- 💪 Difficulté : {row['difficulte']}/10
+- 😄 Plaisir : {row['plaisir']}/10
+- 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
+""")
+
+        if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+            st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                    try:
+                        supabase.table("activites").delete().eq("id", row["id"]).execute()
+                        st.success("✅ Activité supprimée.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de la suppression : {e}")
+
+            with col2:
+                if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                    st.info("Suppression annulée.")
+
             st.divider()
 
 
 def graph_suivi_forme(joueuse):
-    """Affiche le suivi quotidien de forme sur 30 jours (fatigue, sommeil, douleur, stress, humeur)."""
-
     try:
         data = (
             supabase.table("suivi_forme")
@@ -220,20 +208,21 @@ def graph_suivi_forme(joueuse):
         st.info("Aucune donnée enregistrée.")
         return
 
-    # --- Filtrer sur les 30 derniers jours ---
     today = date.today()
     thirty_days_ago = today - timedelta(days=30)
-    data_30j = [a for a in data if pd.to_datetime(a["date"]).date() >= thirty_days_ago]
+
+    data_30j = [
+        a for a in data
+        if pd.to_datetime(a["date"]).date() >= thirty_days_ago
+    ]
 
     if not data_30j:
         st.info("Aucune donnée enregistrée dans les 30 derniers jours.")
         return
 
-    # --- DataFrame ---
     df = pd.DataFrame(data_30j)
     df["date"] = pd.to_datetime(df["date"]).dt.date
 
-    # --- Moyennes par jour ---
     df_avg = df.groupby("date").agg({
         "fatigue": "mean",
         "sommeil": "mean",
@@ -244,7 +233,6 @@ def graph_suivi_forme(joueuse):
 
     fig = go.Figure()
 
-    # --- Traces lignes des moyennes ---
     infos = {
         "fatigue": "Fatigue",
         "sommeil": "Sommeil",
@@ -255,15 +243,13 @@ def graph_suivi_forme(joueuse):
 
     for key, label in infos.items():
         fig.add_trace(go.Scatter(
-            x=df_avg["date"],
-            y=df_avg[key],
+            x=df_avg["date"], y=df_avg[key],
             mode="lines+markers",
             line=dict(dash="dash"),
             name=f"{label}",
             hoverinfo="skip"
         ))
 
-    # --- Mise en forme ---
     fig.update_layout(
         xaxis=dict(title="Date"),
         yaxis=dict(title="Score (1–5)", range=[0, 5.5]),
@@ -271,31 +257,30 @@ def graph_suivi_forme(joueuse):
         hovermode="closest",
         height=500,
         margin=dict(l=40, r=40, t=60, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom",
+                    y=1.02, xanchor="right", x=1),
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-        # --- Historique du suivi de forme ---
     st.subheader("📋 Historique du suivi de forme")
 
     df_sorted = df.sort_values("date", ascending=False)
 
     for _, row in df_sorted.iterrows():
         st.markdown(f"""
-        **🗓️ {row['date'].strftime('%d/%m/%Y')}**
-        - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
-        - 😴 Fatigue générale : {row.get('fatigue', '–')}/5
-        - 💪 Douleurs : {row.get('douleur', '–')}/5
-        - 😰 Niveau de stress : {row.get('stress', '–')}/5
-        - 🙂 Humeur générale : {row.get('humeur', '–')}/5
-        - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
-        """)
-            # --- Bouton de suppression ---
-                # --- Bouton de suppression ---
+**🗓️ {row['date'].strftime('%d/%m/%Y')}**
+- 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
+- 😴 Fatigue générale : {row.get('fatigue', '–')}/5
+- 💪 Douleurs : {row.get('douleur', '–')}/5
+- 😰 Niveau de stress : {row.get('stress', '–')}/5
+- 🙂 Humeur générale : {row.get('humeur', '–')}/5
+- 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
+""")
+
         if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
             st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
-        
+
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
@@ -305,10 +290,12 @@ def graph_suivi_forme(joueuse):
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur lors de la suppression : {e}")
+
             with col2:
                 if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
                     st.info("Suppression annulée.")
-        st.divider()
+
+            st.divider()
 
 
 def verifier_utilisateur(numero: str):
@@ -317,17 +304,25 @@ def verifier_utilisateur(numero: str):
         joueuse = supabase.table("joueuses").select("*").eq("numero_tel", numero).execute().data
         if joueuse:
             return joueuse[0], "joueuse"
+
         staff = supabase.table("staff").select("*").eq("numero_tel", numero).execute().data
         if staff:
             return staff[0], "staff"
+
         return None, None
+
     except Exception as e:
         st.error(f"Erreur lors de la vérification : {e}")
         return None, None
 
+
 def afficher_page_joueuse(user: dict):
-    """Affiche la page dédiée aux joueuses."""
-    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif", "Suivi de forme quotidienne"])
+    choix = st.radio("Que voulez-vous faire ?", [
+        "Billets de train",
+        "Suivi sportif",
+        "Suivi de forme quotidienne"
+    ])
+
     if choix == "Billets de train":
         st.subheader("Billets et Carte Avantage")
         afficher_billets(user)
@@ -335,12 +330,14 @@ def afficher_page_joueuse(user: dict):
     if choix == "Suivi sportif":
         st.subheader("Suivi sportif")
         st.write("Renseigne ici ton activité du jour 👇")
-        # --- Formulaire de saisie ---
+
         with st.form("form_activite"):
             sport = st.selectbox(
-                    "Sport pratiqué",
-                    ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "⚽ Football", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "Autre"]
-                )
+                "Sport pratiqué",
+                ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "🏃‍♂️Course à pied", "🏓Tennis de table",
+                 "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire",
+                 "⚽Football", "Autre"]
+            )
             duree = st.text_input("⏱️Durée")
             difficulte = st.slider("Difficulté ressentie (😁 -> 🥵)", 1, 10, 5)
             plaisir = st.slider("Plaisir pris (😡 -> 🥰)", 1, 10, 5)
@@ -348,7 +345,6 @@ def afficher_page_joueuse(user: dict):
             commentaire = st.text_area("🗣️Commentaires (si tu le souhaites)")
             submitted = st.form_submit_button("Enregistrer")
 
-        # --- Traitement du formulaire ---
         if submitted:
             try:
                 data = {
@@ -358,15 +354,13 @@ def afficher_page_joueuse(user: dict):
                     "difficulte": difficulte,
                     "plaisir": plaisir,
                     "commentaire": commentaire,
-                    # Conversion explicite pour éviter le bug de sérialisation
                     "date": date_activite.isoformat(),
                 }
-
-                response = supabase.table("activites").insert(data).execute()
+                supabase.table("activites").insert(data).execute()
                 st.success("✅ Activité enregistrée avec succès !")
-
             except Exception as e:
                 st.error(f"Erreur lors de l'enregistrement : {e}")
+
         graph_suivi_sportif(st.session_state.user)
 
     elif choix == "Suivi de forme quotidienne":
@@ -395,85 +389,122 @@ def afficher_page_joueuse(user: dict):
                     "humeur": humeur,
                     "commentaire": commentaire,
                 }
-
                 supabase.table("suivi_forme").insert(data).execute()
                 st.success("✅ Suivi enregistré avec succès !")
-
             except Exception as e:
                 st.error(f"Erreur lors de l'enregistrement : {e}")
+
         graph_suivi_forme(st.session_state.user)
 
+
 def afficher_page_staff(user: dict):
-    st.title("Espace Staff")
+    if user["numero_tel"] == os.getenv("MON_NUMERO"):
+        if st.button("Mettre à jour les billets"):
+            placeholder = st.empty()
+            placeholder.info("Mise à jour en cours…")
+            update_billets_from_storage()
+            placeholder.success("Mise à jour terminée !")
+            time.sleep(3)
+            placeholder.empty()
 
-    # Récupération des joueuses
-    data = supabase.table("joueuses").select("*").execute()
+    choix = st.radio("Que voulez-vous faire ?", [
+        "Voir mes billets de train",
+        "Consulter les suivis sportifs",
+        "Consulter les suivis de forme quotidienne"
+    ])
 
-    if not data.data:
-        st.warning("Aucune joueuse trouvée dans la base de données.")
-        return
+    if choix == "Voir mes billets de train":
+        afficher_billets(user)
 
-    joueuses = data.data
+    elif choix == "Consulter les suivis sportifs":
+        st.subheader("Suivi des joueuses")
+        st.write("📊 Sélectionnez une joueuse pour consulter son suivi sportif.")
 
-    # Sélection d'une joueuse dans la liste déroulante
-    choix_joueuse = st.selectbox(
-        "Sélectionnez une joueuse",
-        [f"{j['prenom']} {j['nom']}" for j in joueuses],
-        index=None,  # Permet de ne rien sélectionner par défaut
-        placeholder="Choisir une joueuse..."
-    )
+        try:
+            query = supabase.table("joueuses").select("id, prenom, nom, categorie")
 
-    if choix_joueuse is None:
-        # Aucun affichage tant qu’une joueuse n’est pas choisie
-        return
+            if user.get("masculin") and not user.get("feminin"):
+                query = query.eq("categorie", "Masculin")
+            elif user.get("feminin") and not user.get("masculin"):
+                query = query.eq("categorie", "Féminin")
 
-    # Récupération de la joueuse sélectionnée
-    joueuse_selectionnee = next((j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None)
+            joueuses = query.order("prenom", desc=False).execute().data
 
-    if joueuse_selectionnee is None:
-        st.error("Erreur interne : joueuse introuvable.")
-        return
-
-    # Afficher le graphique
-    st.markdown(f"### 📈 Suivi de {choix_joueuse}")
-    graph_suivi_sportif(joueuse_selectionnee)
-
-    # Récupération des activités pour la joueuse sélectionnée
-    try:
-        data_activites = supabase.table("activites").select("*").eq("joueuse_id", joueuse_selectionnee["id"]).execute()
-
-        if not data_activites.data:
-            st.info("Aucune activité trouvée pour cette joueuse.")
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des joueuses/joueurs : {e}")
             return
 
-        activites = data_activites.data
+        if not joueuses:
+            st.warning("Aucune joueuse trouvée dans la base de données.")
+            return
 
-        # Affichage sous forme de tableau
-        st.markdown("### 📋 Activités récentes")
-        df_activites = pd.DataFrame(activites)
-        st.dataframe(df_activites)
+        noms_joueuses = [f"{j['prenom']} {j['nom']}" for j in joueuses]
+        choix_joueuse = st.selectbox("Choisissez une joueuse :", options=noms_joueuses)
 
-    except Exception as e:
-        st.error(f"Erreur lors du chargement des activités : {e}")
-        return
+        joueuse_selectionnee = next(
+            (j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None
+        )
+
+        if joueuse_selectionnee:
+            st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            graph_suivi_sportif(joueuse_selectionnee)
+
+    elif choix == "Consulter les suivis de forme quotidienne":
+        st.subheader("Suivi des joueuses")
+        st.write("📊 Sélectionnez une joueuse pour consulter son suivi de forme quotidienne.")
+
+        try:
+            query = supabase.table("joueuses").select("id, prenom, nom, categorie")
+
+            if user.get("masculin") and not user.get("feminin"):
+                query = query.eq("categorie", "Masculin")
+            elif user.get("feminin") and not user.get("masculin"):
+                query = query.eq("categorie", "Féminin")
+
+            joueuses = query.order("prenom", desc=False).execute().data
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des joueuses/joueurs : {e}")
+            return
+
+        if not joueuses:
+            st.warning("Aucune joueuse trouvée dans la base de données.")
+            return
+
+        noms_joueuses = [f"{j['prenom']} {j['nom']}" for j in joueuses]
+        choix_joueuse = st.selectbox("Choisissez une joueuse :", options=noms_joueuses)
+
+        joueuse_selectionnee = next(
+            (j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None
+        )
+
+        if joueuse_selectionnee:
+            st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            graph_suivi_forme(joueuse_selectionnee)
 
 
 # --- Page d'accueil ---
 st.title("Pôle France Para Basketball Adapté")
 
 # --- Zone de connexion ---
-phone = st.text_input("📱Entrez votre numéro de téléphone", placeholder="Ex: 0612345678").replace(" ", "")
+phone = st.text_input(
+    "📱Entrez votre numéro de téléphone",
+    placeholder="Ex: 0612345678"
+).replace(" ", "")
+
 numero = re.sub('\++33', '0', phone)
+
 if st.button("🚪Accéder"):
     if len(numero) != 10 or not numero.startswith(("06", "07")):
         st.error("Numéro de téléphone invalide. Veuillez entrer un numéro français valide (10 chiffres, commence par 06 ou 07).")
     else:
         with st.spinner("Vérification en cours..."):
             user, type_user = verifier_utilisateur(numero)
+
             if user:
                 st.session_state.user = user
                 st.session_state.type_user = type_user
-                st.rerun()  # Utilisation de st.rerun() au lieu de st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Numéro inconnu.")
 

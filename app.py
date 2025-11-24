@@ -5,6 +5,7 @@ import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
 from update_billets_from_storage import update_billets_from_storage
+from analyse import compute_charge, normalize_charge, compute_variability, correlation_difficulte_plaisir
 import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
@@ -338,7 +339,7 @@ def afficher_page_joueuse(user: dict):
         with st.form("form_activite"):
             sport = st.selectbox(
                     "Sport pratiqué",
-                    ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "⚽Football", "Autre"]
+                    ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "⚽ Football", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "Autre"]
                 )
             duree = st.text_input("⏱️Durée")
             difficulte = st.slider("Difficulté ressentie (😁 -> 🥵)", 1, 10, 5)
@@ -403,6 +404,38 @@ def afficher_page_joueuse(user: dict):
         graph_suivi_forme(st.session_state.user)
 
 def afficher_page_staff(user: dict):
+    st.title("Espace Staff")
+
+    # ----------------------
+    # Charger la table joueuses
+    # ----------------------
+    data = supabase.table("joueuses").select("*").execute()
+
+    if not data.data:
+        st.warning("Aucune joueuse trouvée dans la base de données.")
+        return
+
+    joueuses = data.data
+
+    # Liste déroulante des joueuses
+    choix_joueuse = st.selectbox(
+        "Sélectionnez une joueuse",
+        [f"{j['prenom']} {j['nom']}" for j in joueuses],
+        index=None,
+        placeholder="Choisir une joueuse..."
+    )
+
+    if choix_joueuse is None:
+        return
+
+    joueuse_selectionnee = next(
+        (j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse),
+        None
+    )
+
+    if joueuse_selectionnee is None:
+        st.error("Erreur : impossible de retrouver la joueuse sélectionnée.")
+        return
     """Affiche la page dédiée au staff."""
     if user["numero_tel"] == os.getenv("MON_NUMERO"):
         if st.button("Mettre à jour les billets"):
@@ -420,9 +453,13 @@ def afficher_page_staff(user: dict):
         st.subheader("Suivi des joueuses")
         st.write("📊 Sélectionnez une joueuse pour consulter son suivi sportif.")
 
-        # --- Récupération des joueuses en fonction du staff ---
-        try:
-            query = supabase.table("joueuses").select("id, prenom, nom, categorie")
+    st.markdown(f"## 👤 {choix_joueuse}")
+
+    # ================================
+    # 1) GRAPHIQUE DE SUIVI
+    # ================================
+    st.subheader("📈 Suivi sportif (forme)")
+    graph_suivi_sportif(joueuse_selectionnee)
 
             # Cas 1 → staff masculin uniquement
             if user.get("masculin") and not user.get("feminin"):
@@ -432,28 +469,96 @@ def afficher_page_staff(user: dict):
             elif user.get("feminin") and not user.get("masculin"):
                 query = query.eq("categorie", "Féminin")
 
-            # Cas 3 → staff sur les deux → pas de filtre
+    # =========================================
+    # 2) ANALYSE DU SUIVI DE FORME (suivi_forme)
+    # =========================================
+    st.subheader("🧠 Analyse du bien-être")
 
-            joueuses = query.order("prenom", desc=False).execute().data
+    data_forme = (
+        supabase.table("suivi_forme")
+        .select("*")
+        .eq("joueuse_id", joueuse_selectionnee["id"])
+        .order("date", desc=False)
+        .execute()
+        .data
+    )
 
-        except Exception as e:
-            st.error(f"Erreur lors du chargement des joueuses/joueurs : {e}")
-            return
+    if data_forme:
+        df_forme = pd.DataFrame(data_forme)
+        df_forme["date"] = pd.to_datetime(df_forme["date"])
 
-        if not joueuses:
-            st.warning("Aucune joueuse trouvée dans la base de données.")
-            return
+        # Calcul des indicateurs
+        df_forme["charge"] = df_forme.apply(compute_charge, axis=1)
+        df_forme["charge_norm"] = df_forme["charge"].apply(normalize_charge)
 
-        # --- Liste déroulante des joueuses ---
-        noms_joueuses = [f"{j['prenom']} {j['nom']}" for j in joueuses]
-        choix_joueuse = st.selectbox("Choisissez une joueuse :", options=noms_joueuses)
+        variabilite_txt, variabilite_score = compute_variability(df_forme)
 
-        # --- Trouver la joueuse sélectionnée ---
-        joueuse_selectionnee = next((j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None)
+        # --- Affichage ---
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(
+                "Charge psycho-physiologique (0-100)",
+                f"{df_forme['charge_norm'].iloc[-1]:.0f}"
+            )
+        with col2:
+            st.metric(
+                "Variabilité",
+                variabilite_txt,
+                delta=f"{variabilite_score:.1f}" if variabilite_score else "N/A"
+            )
 
-        if joueuse_selectionnee:
-            st.markdown(f"### 📈 Suivi de {choix_joueuse}")
-            graph_suivi_sportif(joueuse_selectionnee)
+        # Optionnel : afficher le dataframe ou les valeurs brutes
+        with st.expander("Voir les données analysées"):
+            st.dataframe(df_forme)
+
+    else:
+        st.info("Aucun enregistrement de suivi de forme pour cette joueuse.")
+
+
+    # =======================================================
+    # 3) ANALYSE DIFFICULTÉ ↔ PLAISIR (table : activites)
+    # =======================================================
+    st.subheader("🎭 Relation difficulté ↔ plaisir")
+
+    data_act = (
+        supabase.table("activites")
+        .select("*")
+        .eq("joueuse_id", joueuse_selectionnee["id"])
+        .order("date", desc=False)
+        .execute()
+        .data
+    )
+
+    if data_act:
+        df_act = pd.DataFrame(data_act)
+        df_act["date"] = pd.to_datetime(df_act["date"])
+
+        corr = correlation_difficulte_plaisir(df_act)
+
+        # Corrélation globale
+        if corr and corr["correlation_globale"] is not None:
+            global_corr = corr["correlation_globale"]
+            signe = "🔼 positif" if global_corr > 0 else "🔽 négatif"
+            st.markdown(
+                f"**Corrélation globale :** `{global_corr:.2f}` ({signe})"
+            )
+        else:
+            st.write("Corrélation globale : non significative")
+
+        # Corrélations par sport
+        st.markdown("### Par sport")
+        for sport, c in corr["correlation_par_sport"].items():
+            if c is None:
+                st.write(f"- **{sport}** : pas assez de données")
+            else:
+                signe = "🔼" if c > 0 else "🔽"
+                st.write(f"- **{sport}** : `{c:.2f}` {signe}")
+
+        with st.expander("Voir les activités brutes"):
+            st.dataframe(df_act)
+
+    else:
+        st.info("Aucune activité enregistrée pour cette joueuse.")
 
     elif choix == "Consulter les suivis de forme quotidienne":
         st.subheader("Suivi des joueuses")

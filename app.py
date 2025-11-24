@@ -5,7 +5,7 @@ import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
 from update_billets_from_storage import update_billets_from_storage
-from analyse import compute_charge, normalize_charge, compute_variability, correlation_difficulte_plaisir, 
+from analyse import compute_charge, normalize_charge, compute_variability, correlation_difficulte_plaisir
 import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go

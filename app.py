@@ -504,9 +504,14 @@ def afficher_page_staff(user: dict):
             
                 niveau_var, var_score = compute_variability(df_suivi)
                 charge_moyenne = df_suivi["charge_norm"].mean()
-            
+                st.markdown("Charge psycho-physiologique")
+                st.markdown("0 : état très dégradé")
+                st.markdown("100 : bien-être maximal")
                 st.markdown(f"**Charge psycho-physiologique des 30 derniers jours :** {charge_moyenne:.2f}")
-                st.markdown(f"**Variabilité de la charge :** {niveau_var} ({var_score:.2f} si disponible)")
+                if var_score is not None:
+                    st.markdown(f"**Variabilité de la charge :** {niveau_var} ({round(var_score,2)})")
+                else:
+                    st.markdown(f"**Variabilité de la charge :** {niveau_var} (–)")
 
             graph_suivi_forme(joueuse_selectionnee)
 

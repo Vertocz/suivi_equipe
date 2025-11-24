@@ -5,6 +5,7 @@ import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
 from update_billets_from_storage import update_billets_from_storage
+from analyse import compute_charge, normalize_charge, compute variability, correlation_difficulte_plaisir, 
 import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
@@ -447,6 +448,15 @@ def afficher_page_staff(user: dict):
 
         if joueuse_selectionnee:
             st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            # Récupération des activités complètes
+            activites = supabase.table("activites").select("*").eq("joueuse_id", joueuse_selectionnee["id"]).execute().data
+            df_activites = pd.DataFrame(activites)
+            
+            if not df_activites.empty:
+                corr = correlation_difficulte_plaisir(df_activites)
+                st.markdown("**Corrélation Globale :** " + str(corr["correlation_globale"]))
+                for sport, val in corr["correlation_par_sport"].items():
+                    st.markdown(f"**{sport} :** {val}")
             graph_suivi_sportif(joueuse_selectionnee)
 
     elif choix == "Consulter les suivis de forme quotidienne":
@@ -480,6 +490,21 @@ def afficher_page_staff(user: dict):
 
         if joueuse_selectionnee:
             st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            # Récupération du suivi complet
+            data = supabase.table("suivi_forme").select("*").eq("joueuse_id", joueuse_selectionnee["id"]).execute().data
+            df_suivi = pd.DataFrame(data)
+            
+            if not df_suivi.empty:
+                # Calcul charge normalisée
+                df_suivi["charge"] = df_suivi.apply(compute_charge, axis=1)
+                df_suivi["charge_norm"] = df_suivi["charge"].apply(normalize_charge)
+            
+                niveau_var, var_score = compute_variability(df_suivi)
+                charge_moyenne = df_suivi["charge_norm"].mean()
+            
+                st.markdown(f"**Charge psycho-physiologique des 30 derniers jours :** {charge_moyenne:.2f}")
+                st.markdown(f"**Variabilité de la charge :** {niveau_var} ({var_score:.2f} si disponible)")
+
             graph_suivi_forme(joueuse_selectionnee)
 
 

@@ -67,13 +67,13 @@ def correlation_difficulte_plaisir(df):
     else:
         corr = df["difficulte"].corr(df["plaisir"])
 
-    res["correlation_globale"] = corr
+    res["correlation_globale"] = round(corr, 2)
 
     # Par sport
     correlations = {}
     for sport, group in df.groupby("sport"):
         if len(group) >= 3 and group["difficulte"].std() > 0 and group["plaisir"].std() > 0:
-            correlations[sport] = group["difficulte"].corr(group["plaisir"])
+            correlations[sport] = round(group["difficulte"].corr(group["plaisir"]), 2)
         else:
             correlations[sport] = None
 

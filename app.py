@@ -461,13 +461,13 @@ def afficher_page_staff(user: dict):
     st.subheader("📈 Suivi sportif (forme)")
     graph_suivi_sportif(joueuse_selectionnee)
 
-            # Cas 1 → staff masculin uniquement
-            if user.get("masculin") and not user.get("feminin"):
-                query = query.eq("categorie", "Masculin")
+    # Cas 1 → staff masculin uniquement
+    if user.get("masculin") and not user.get("feminin"):
+        query = query.eq("categorie", "Masculin")
 
-            # Cas 2 → staff féminin uniquement
-            elif user.get("feminin") and not user.get("masculin"):
-                query = query.eq("categorie", "Féminin")
+    # Cas 2 → staff féminin uniquement
+    elif user.get("feminin") and not user.get("masculin"):
+        query = query.eq("categorie", "Féminin")
 
     # =========================================
     # 2) ANALYSE DU SUIVI DE FORME (suivi_forme)

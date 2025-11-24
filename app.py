@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 import time
 from datetime import date, datetime, timedelta
 from supabase_client import supabase
@@ -9,6 +10,10 @@ import pandas as pd
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
 
+st.set_page_config(
+    page_title="Pôle France Parabasket Adapté",   # Titre de l'onglet
+    page_icon="🏀",              # Emoji ou chemin vers un fichier image (.png, .ico)
+)
 
 # --- Initialisation de la session ---
 if "user" not in st.session_state:
@@ -89,7 +94,7 @@ def graph_suivi_sportif(joueuse):
             fig.add_trace(go.Scatter(
                 x=df_avg["date"],
                 y=df_avg["plaisir"],
-                mode="lines+markers",
+                mode="lines",
                 line=dict(color="green", dash="dash"),
                 marker=dict(color="green"),
                 name="",  # Pas de légende
@@ -102,7 +107,7 @@ def graph_suivi_sportif(joueuse):
             fig.add_trace(go.Scatter(
                 x=df_avg["date"],
                 y=df_avg["difficulte"],
-                mode="lines+markers",
+                mode="lines",
                 line=dict(color="red", dash="dash"),
                 marker=dict(color="red"),
                 name="",  # Pas de légende
@@ -161,6 +166,150 @@ def graph_suivi_sportif(joueuse):
 
             # --- Affichage UNIQUE du graphique ---
             st.plotly_chart(fig, use_container_width=True, key="graphique_suivi")
+            
+        # --- Affichage des enregistrements récents ---
+        st.subheader("📋 Historique des séances")
+    
+        # Trier du plus récent au plus ancien
+        df_sorted = df.sort_values("date", ascending=False)
+    
+        for _, row in df_sorted.iterrows():
+            st.markdown(f"""
+            **🗓️ {row['date'].strftime('%d/%m/%Y')} — {row['sport']}**
+            - ⏱️ Durée : {row['duree']}
+            - 💪 Difficulté : {row['difficulte']}/10
+            - 😄 Plaisir : {row['plaisir']}/10
+            - 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
+            """)
+                # --- Bouton de suppression ---
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+                st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+            
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                        try:
+                            supabase.table("activites").delete().eq("id", row["id"]).execute()
+                            st.success("✅ Activité supprimée.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erreur lors de la suppression : {e}")
+                with col2:
+                    if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                        st.info("Suppression annulée.")
+            st.divider()
+
+
+def graph_suivi_forme(joueuse):
+    """Affiche le suivi quotidien de forme sur 30 jours (fatigue, sommeil, douleur, stress, humeur)."""
+
+    try:
+        data = (
+            supabase.table("suivi_forme")
+            .select("*")
+            .eq("joueuse_id", joueuse["id"])
+            .order("date", desc=False)
+            .execute()
+            .data
+        )
+    except Exception as e:
+        st.error(f"Erreur lors du chargement : {e}")
+        return
+
+    if not data:
+        st.info("Aucune donnée enregistrée.")
+        return
+
+    # --- Filtrer sur les 30 derniers jours ---
+    today = date.today()
+    thirty_days_ago = today - timedelta(days=30)
+    data_30j = [a for a in data if pd.to_datetime(a["date"]).date() >= thirty_days_ago]
+
+    if not data_30j:
+        st.info("Aucune donnée enregistrée dans les 30 derniers jours.")
+        return
+
+    # --- DataFrame ---
+    df = pd.DataFrame(data_30j)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+
+    # --- Moyennes par jour ---
+    df_avg = df.groupby("date").agg({
+        "fatigue": "mean",
+        "sommeil": "mean",
+        "douleur": "mean",
+        "stress": "mean",
+        "humeur": "mean",
+    }).reset_index()
+
+    fig = go.Figure()
+
+    # --- Traces lignes des moyennes ---
+    infos = {
+        "fatigue": "Fatigue",
+        "sommeil": "Sommeil",
+        "douleur": "Douleur",
+        "stress": "Stress",
+        "humeur": "Humeur",
+    }
+
+    for key, label in infos.items():
+        fig.add_trace(go.Scatter(
+            x=df_avg["date"],
+            y=df_avg[key],
+            mode="lines+markers",
+            line=dict(dash="dash"),
+            name=f"{label}",
+            hoverinfo="skip"
+        ))
+
+    # --- Mise en forme ---
+    fig.update_layout(
+        xaxis=dict(title="Date"),
+        yaxis=dict(title="Score (1–5)", range=[0, 5.5]),
+        template="plotly_white",
+        hovermode="closest",
+        height=500,
+        margin=dict(l=40, r=40, t=60, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+        # --- Historique du suivi de forme ---
+    st.subheader("📋 Historique du suivi de forme")
+
+    df_sorted = df.sort_values("date", ascending=False)
+
+    for _, row in df_sorted.iterrows():
+        st.markdown(f"""
+        **🗓️ {row['date'].strftime('%d/%m/%Y')}**
+        - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
+        - 😴 Fatigue générale : {row.get('fatigue', '–')}/5
+        - 💪 Douleurs : {row.get('douleur', '–')}/5
+        - 😰 Niveau de stress : {row.get('stress', '–')}/5
+        - 🙂 Humeur générale : {row.get('humeur', '–')}/5
+        - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
+        """)
+            # --- Bouton de suppression ---
+                # --- Bouton de suppression ---
+        if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+            st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
+        
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                    try:
+                        supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
+                        st.success("✅ Activité supprimée.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de la suppression : {e}")
+            with col2:
+                if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                    st.info("Suppression annulée.")
+        st.divider()
+
 
 def verifier_utilisateur(numero: str):
     """Vérifie si le numéro appartient à une joueuse ou un membre du staff."""
@@ -178,7 +327,7 @@ def verifier_utilisateur(numero: str):
 
 def afficher_page_joueuse(user: dict):
     """Affiche la page dédiée aux joueuses."""
-    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif"])
+    choix = st.radio("Que voulez-vous faire ?", ["Billets de train", "Suivi sportif", "Suivi de forme quotidienne"])
     if choix == "Billets de train":
         st.subheader("Billets et Carte Avantage")
         afficher_billets(user)
@@ -193,10 +342,10 @@ def afficher_page_joueuse(user: dict):
                     ["⛹️‍♀️Basket", "🚴‍♂️Vélo", "⚽ Football", "🏃‍♂️Course à pied", "🏓Tennis de table", "🏸Badminton", "🏊‍♂️Natation", "🏋️‍♂️Renforcement musculaire", "Autre"]
                 )
             duree = st.text_input("⏱️Durée")
-            difficulte = st.slider("Difficulté ressentie (1 = 😁, 10 = 🥵)", 1, 10, 5)
-            plaisir = st.slider("Plaisir pris (1 = 😡, 10 = 🥰)", 1, 10, 5)
+            difficulte = st.slider("Difficulté ressentie (😁 -> 🥵)", 1, 10, 5)
+            plaisir = st.slider("Plaisir pris (😡 -> 🥰)", 1, 10, 5)
             date_activite = st.date_input("📅Date de l'activité", date.today(), format="DD/MM/YYYY")
-            commentaire = st.text_area("🗣️Commentaires (facultatif)")
+            commentaire = st.text_area("🗣️Commentaires (si tu le souhaites)")
             submitted = st.form_submit_button("Enregistrer")
 
         # --- Traitement du formulaire ---
@@ -219,6 +368,40 @@ def afficher_page_joueuse(user: dict):
             except Exception as e:
                 st.error(f"Erreur lors de l'enregistrement : {e}")
         graph_suivi_sportif(st.session_state.user)
+
+    elif choix == "Suivi de forme quotidienne":
+        st.subheader("Suivi de forme quotidienne 🧘‍♀️")
+        st.write("Évalue ton état général du jour 👇")
+
+        with st.form("form_suivi_forme"):
+            date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
+            fatigue = st.slider("😴 Fatigue générale (😊très frais -> 🫩toujours fatigué)", 1, 5, 3)
+            sommeil = st.slider("🛌 Qualité du sommeil (👀insomnie -> 💤très reposant)", 1, 5, 3)
+            douleur = st.slider("💪 Douleurs musculaires (😎aucune douleur -> 😖très douloureux)", 1, 5, 3)
+            stress = st.slider("😰 Niveau de stress (🧘‍♀️très détendu -> 😧très stressé)", 1, 5, 3)
+            humeur = st.slider("😊 Humeur générale (😡contrarié, irritable, déprimé -> 🥳très positif)", 1, 5, 3)
+            commentaire = st.text_area("🗣️ Commentaire (si tu le souhaites)")
+            submitted = st.form_submit_button("Enregistrer")
+
+        if submitted:
+            try:
+                data = {
+                    "joueuse_id": user["id"],
+                    "date": date_suivi.isoformat(),
+                    "fatigue": fatigue,
+                    "sommeil": sommeil,
+                    "douleur": douleur,
+                    "stress": stress,
+                    "humeur": humeur,
+                    "commentaire": commentaire,
+                }
+
+                supabase.table("suivi_forme").insert(data).execute()
+                st.success("✅ Suivi enregistré avec succès !")
+
+            except Exception as e:
+                st.error(f"Erreur lors de l'enregistrement : {e}")
+        graph_suivi_forme(st.session_state.user)
 
 def afficher_page_staff(user: dict):
     st.title("Espace Staff")
@@ -253,6 +436,22 @@ def afficher_page_staff(user: dict):
     if joueuse_selectionnee is None:
         st.error("Erreur : impossible de retrouver la joueuse sélectionnée.")
         return
+    """Affiche la page dédiée au staff."""
+    if user["numero_tel"] == os.getenv("MON_NUMERO"):
+        if st.button("Mettre à jour les billets"):
+            placeholder = st.empty()
+            placeholder.info("Mise à jour en cours…")
+            update_billets_from_storage()
+            placeholder.success("Mise à jour terminée !")
+            time.sleep(3)
+            placeholder.empty()
+
+    choix = st.radio("Que voulez-vous faire ?", ["Voir mes billets de train", "Consulter les suivis sportifs", "Consulter les suivis de forme quotidienne"])
+    if choix == "Voir mes billets de train":
+        afficher_billets(user)
+    elif choix == "Consulter les suivis sportifs":
+        st.subheader("Suivi des joueuses")
+        st.write("📊 Sélectionnez une joueuse pour consulter son suivi sportif.")
 
     st.markdown(f"## 👤 {choix_joueuse}")
 
@@ -262,6 +461,13 @@ def afficher_page_staff(user: dict):
     st.subheader("📈 Suivi sportif (forme)")
     graph_suivi_sportif(joueuse_selectionnee)
 
+            # Cas 1 → staff masculin uniquement
+            if user.get("masculin") and not user.get("feminin"):
+                query = query.eq("categorie", "Masculin")
+
+            # Cas 2 → staff féminin uniquement
+            elif user.get("feminin") and not user.get("masculin"):
+                query = query.eq("categorie", "Féminin")
 
     # =========================================
     # 2) ANALYSE DU SUIVI DE FORME (suivi_forme)
@@ -354,11 +560,52 @@ def afficher_page_staff(user: dict):
     else:
         st.info("Aucune activité enregistrée pour cette joueuse.")
 
+    elif choix == "Consulter les suivis de forme quotidienne":
+        st.subheader("Suivi des joueuses")
+        st.write("📊 Sélectionnez une joueuse pour consulter son suivi de forme quotidienne.")
+
+        # --- Récupération des joueuses en fonction du staff ---
+        try:
+            query = supabase.table("joueuses").select("id, prenom, nom, categorie")
+
+            # Cas 1 → staff masculin uniquement
+            if user.get("masculin") and not user.get("feminin"):
+                query = query.eq("categorie", "Masculin")
+
+            # Cas 2 → staff féminin uniquement
+            elif user.get("feminin") and not user.get("masculin"):
+                query = query.eq("categorie", "Féminin")
+
+            # Cas 3 → staff sur les deux → pas de filtre
+
+            joueuses = query.order("prenom", desc=False).execute().data
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement des joueuses/joueurs : {e}")
+            return
+
+        if not joueuses:
+            st.warning("Aucune joueuse trouvée dans la base de données.")
+            return
+
+        # --- Liste déroulante des joueuses ---
+        noms_joueuses = [f"{j['prenom']} {j['nom']}" for j in joueuses]
+        choix_joueuse = st.selectbox("Choisissez une joueuse :", options=noms_joueuses)
+
+        # --- Trouver la joueuse sélectionnée ---
+        joueuse_selectionnee = next((j for j in joueuses if f"{j['prenom']} {j['nom']}" == choix_joueuse), None)
+
+        if joueuse_selectionnee:
+            st.markdown(f"### 📈 Suivi de {choix_joueuse}")
+            graph_suivi_forme(joueuse_selectionnee)
+
+
 # --- Page d'accueil ---
 st.title("Pôle France Para Basketball Adapté")
 
 # --- Zone de connexion ---
-numero = st.text_input("📱Entrez votre numéro de téléphone", placeholder="Ex: 0612345678")
+phone = st.text_input("📱Entrez votre numéro de téléphone", placeholder="Ex: 0612345678").replace(" ", "")
+numero = re.sub('\++33', '0', phone)
 if st.button("🚪Accéder"):
     if len(numero) != 10 or not numero.startswith(("06", "07")):
         st.error("Numéro de téléphone invalide. Veuillez entrer un numéro français valide (10 chiffres, commence par 06 ou 07).")

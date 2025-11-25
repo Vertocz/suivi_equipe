@@ -456,7 +456,8 @@ def afficher_page_staff(user: dict):
                 legende = '''+1 : plus la difficulté augmente, plus le plaisir augmente  
                 0 : aucune corrélation  
                 -1 : plus la difficulté augmente, moins le plaisir est ressenti'''
-                st.markdown(legende)
+                with st.popover("Légende"):
+                    st.markdown(legende)
                 corr = correlation_difficulte_plaisir(df_activites)
                 st.markdown("**Corrélation Globale :** " + str(corr["correlation_globale"]))
                 for sport, val in corr["correlation_par_sport"].items():

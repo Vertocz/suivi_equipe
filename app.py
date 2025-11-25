@@ -453,9 +453,10 @@ def afficher_page_staff(user: dict):
             df_activites = pd.DataFrame(activites)
             
             if not df_activites.empty:
-                st.markdown("+1 : plus la difficulté augmente, plus le plaisir augmente")
-                st.markdown("0 : aucune corrélation")
-                st.markdown("-1 : plus la difficulté augmente, moins le plaisir est ressenti")
+                legende = '''+1 : plus la difficulté augmente, plus le plaisir augmente  
+                0 : aucune corrélation  
+                -1 : plus la difficulté augmente, moins le plaisir est ressenti'''
+                st.markdown(legende)
                 corr = correlation_difficulte_plaisir(df_activites)
                 st.markdown("**Corrélation Globale :** " + str(corr["correlation_globale"]))
                 for sport, val in corr["correlation_par_sport"].items():

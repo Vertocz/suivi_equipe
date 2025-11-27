@@ -273,7 +273,7 @@ def graph_suivi_forme(joueuse):
 **🗓️ {row['date'].strftime('%d/%m/%Y')}**
 - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
 - 😴 Fatigue générale : {row.get('fatigue', '–')}/5
-- 💪 Douleurs : {row.get('douleur', '–')}/5
+- 🤕 Douleurs : {row.get('douleur', '–')}/5
 - 😰 Niveau de stress : {row.get('stress', '–')}/5
 - 🙂 Humeur générale : {row.get('humeur', '–')}/5
 - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
@@ -372,7 +372,7 @@ def afficher_page_joueuse(user: dict):
             date_suivi = st.date_input("📅 Date du jour", date.today(), format="DD/MM/YYYY")
             fatigue = st.slider("😴 Fatigue générale (😊très frais -> 🫩toujours fatigué)", 1, 5, 3)
             sommeil = st.slider("🛌 Qualité du sommeil (👀insomnie -> 💤très reposant)", 1, 5, 3)
-            douleur = st.slider("💪 Douleurs musculaires (😎aucune douleur -> 😖très douloureux)", 1, 5, 3)
+            douleur = st.slider("🤕 Douleurs (😎aucune douleur -> 😖très douloureux)", 1, 5, 3)
             stress = st.slider("😰 Niveau de stress (🧘‍♀️très détendu -> 😧très stressé)", 1, 5, 3)
             humeur = st.slider("😊 Humeur générale (😡contrarié, irritable, déprimé -> 🥳très positif)", 1, 5, 3)
             commentaire = st.text_area("🗣️ Commentaire (si tu le souhaites)")

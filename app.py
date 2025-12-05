@@ -49,7 +49,7 @@ def afficher_billets(user: dict):
             st.warning("Pas d'URL disponible pour ce billet.")
             continue
 
-        st.markdown(f"[Ouvrir / Télécharger le billet]({url})", unsafe_allow_html=True)
+        st.markdown(f"[Ouvrir / Télécharger le billet]('https://fxvotvtapcwzvjhfreqv.supabase.co/storage/v1/object/public/Billets/'+{url})", unsafe_allow_html=True)
         st.divider()
 
 

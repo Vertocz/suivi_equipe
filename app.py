@@ -44,7 +44,7 @@ def afficher_billets(user: dict):
     for b in billets:
         st.markdown(f"**Billet : {b['nom_fichier']}**")
 
-        url = b.get("url_stockage")
+        url = "https://fxvotvtapcwzvjhfreqv.supabase.co/storage/v1/object/public/Billets/"+b.get("url_stockage")
         if not url:
             st.warning("Pas d'URL disponible pour ce billet.")
             continue

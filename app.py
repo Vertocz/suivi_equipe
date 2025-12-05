@@ -287,6 +287,7 @@ def graph_suivi_forme(joueuse):
                 if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
                     try:
                         supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
+                        console.log(row, row["id"]
                         st.success("✅ Activité supprimée.")
                         st.rerun()
                     except Exception as e:

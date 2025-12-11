@@ -176,10 +176,9 @@ def graph_suivi_sportif(joueuse):
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                if st.button("✅ Oui, supprimer"+str(row['id']), key=f"conf_suppr_{row['id']}"):
                     try:
                         supabase.table("activites").delete().eq("id", row["id"]).execute()
-                        st.info(str(row["id"])+" a été supprimé.")
                         st.success("✅ Activité supprimée.")
                         st.rerun()
                     except Exception as e:
@@ -288,7 +287,6 @@ def graph_suivi_forme(joueuse):
                 if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
                     try:
                         supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
-                        st.info(str(row["id"])+" a été supprimé.")
                         st.success("✅ Activité supprimée.")
                         st.rerun()
                     except Exception as e:

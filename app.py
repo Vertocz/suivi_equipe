@@ -166,7 +166,10 @@ def graph_suivi_sportif(joueuse):
 
     df_sorted = df.sort_values("date", ascending=False)
 
-    for _, row in df_sorted.iterrows():
+    for idx, row in df_sorted.iterrows():
+        # Récupérer le vrai ID - convertir en string pour éviter les problèmes de type
+        record_id = str(row['id'])
+        
         st.markdown(f"""
 **🗓️ {row['date'].strftime('%d/%m/%Y')} — {row['sport']}**
 - ⏱️ Durée : {row['duree']}
@@ -176,14 +179,15 @@ def graph_suivi_sportif(joueuse):
 """)
 
         # Si on est en mode confirmation pour cette ligne
-        if st.session_state.confirm_delete_sport == row['id']:
+        if st.session_state.confirm_delete_sport == record_id:
             st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                if st.button("✅ Oui, supprimer", key=f"conf_suppr_sport_{record_id}"):
                     try:
-                        supabase.table("activites").delete().eq("id", row["id"]).execute()
+                        # Utiliser l'ID original (pas forcément string dans la base)
+                        supabase.table("activites").delete().eq("id", row['id']).execute()
                         st.session_state.confirm_delete_sport = None
                         st.success("✅ Activité supprimée.")
                         time.sleep(1)
@@ -192,13 +196,13 @@ def graph_suivi_sportif(joueuse):
                         st.error(f"Erreur lors de la suppression : {e}")
 
             with col2:
-                if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                if st.button("❌ Non, annuler", key=f"cancel_suppr_sport_{record_id}"):
                     st.session_state.confirm_delete_sport = None
                     st.rerun()
         else:
             # Bouton pour déclencher la confirmation
-            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
-                st.session_state.confirm_delete_sport = row['id']
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_sport_{record_id}"):
+                st.session_state.confirm_delete_sport = record_id
                 st.rerun()
 
         st.divider()
@@ -285,7 +289,10 @@ def graph_suivi_forme(joueuse):
 
     df_sorted = df.sort_values("date", ascending=False)
 
-    for _, row in df_sorted.iterrows():
+    for idx, row in df_sorted.iterrows():
+        # Récupérer le vrai ID - convertir en string pour éviter les problèmes de type
+        record_id = str(row['id'])
+        
         st.markdown(f"""
 **🗓️ {row['date'].strftime('%d/%m/%Y')}**
 - 🛌 Qualité du sommeil : {row.get('sommeil', '–')}/5
@@ -297,14 +304,15 @@ def graph_suivi_forme(joueuse):
 """)
 
         # Si on est en mode confirmation pour cette ligne
-        if st.session_state.confirm_delete_forme == row['id']:
+        if st.session_state.confirm_delete_forme == record_id:
             st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
+                if st.button("✅ Oui, supprimer", key=f"conf_suppr_forme_{record_id}"):
                     try:
-                        supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
+                        # Utiliser l'ID original (pas forcément string dans la base)
+                        supabase.table("suivi_forme").delete().eq("id", row['id']).execute()
                         st.session_state.confirm_delete_forme = None
                         st.success("✅ Activité supprimée.")
                         time.sleep(1)
@@ -313,13 +321,13 @@ def graph_suivi_forme(joueuse):
                         st.error(f"Erreur lors de la suppression : {e}")
 
             with col2:
-                if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
+                if st.button("❌ Non, annuler", key=f"cancel_suppr_forme_{record_id}"):
                     st.session_state.confirm_delete_forme = None
                     st.rerun()
         else:
             # Bouton pour déclencher la confirmation
-            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
-                st.session_state.confirm_delete_forme = row['id']
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_forme_{record_id}"):
+                st.session_state.confirm_delete_forme = record_id
                 st.rerun()
 
         st.divider()

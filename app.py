@@ -54,6 +54,10 @@ def afficher_billets(user: dict):
 
 
 def graph_suivi_sportif(joueuse):
+    # Initialiser l'état de suppression si nécessaire
+    if "confirm_delete_sport" not in st.session_state:
+        st.session_state.confirm_delete_sport = None
+
     activites = (
         supabase.table("activites")
         .select("*")
@@ -171,7 +175,8 @@ def graph_suivi_sportif(joueuse):
 - 🗣️ Commentaire : {row['commentaire'] or '_Aucun_'}
 """)
 
-        if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+        # Si on est en mode confirmation pour cette ligne
+        if st.session_state.confirm_delete_sport == row['id']:
             st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
 
             col1, col2 = st.columns(2)
@@ -179,19 +184,31 @@ def graph_suivi_sportif(joueuse):
                 if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
                     try:
                         supabase.table("activites").delete().eq("id", row["id"]).execute()
+                        st.session_state.confirm_delete_sport = None
                         st.success("✅ Activité supprimée.")
+                        time.sleep(1)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur lors de la suppression : {e}")
 
             with col2:
                 if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
-                    st.info("Suppression annulée.")
+                    st.session_state.confirm_delete_sport = None
+                    st.rerun()
+        else:
+            # Bouton pour déclencher la confirmation
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+                st.session_state.confirm_delete_sport = row['id']
+                st.rerun()
 
-            st.divider()
+        st.divider()
 
 
 def graph_suivi_forme(joueuse):
+    # Initialiser l'état de suppression si nécessaire
+    if "confirm_delete_forme" not in st.session_state:
+        st.session_state.confirm_delete_forme = None
+
     try:
         data = (
             supabase.table("suivi_forme")
@@ -279,7 +296,8 @@ def graph_suivi_forme(joueuse):
 - 🗣️ Commentaire : {row.get('commentaire', '_Aucun_')}
 """)
 
-        if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+        # Si on est en mode confirmation pour cette ligne
+        if st.session_state.confirm_delete_forme == row['id']:
             st.warning("Es-tu sûr de vouloir supprimer cette activité ?", icon="⚠️")
 
             col1, col2 = st.columns(2)
@@ -287,16 +305,24 @@ def graph_suivi_forme(joueuse):
                 if st.button("✅ Oui, supprimer", key=f"conf_suppr_{row['id']}"):
                     try:
                         supabase.table("suivi_forme").delete().eq("id", row["id"]).execute()
+                        st.session_state.confirm_delete_forme = None
                         st.success("✅ Activité supprimée.")
+                        time.sleep(1)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erreur lors de la suppression : {e}")
 
             with col2:
                 if st.button("❌ Non, annuler", key=f"cancel_suppr_{row['id']}"):
-                    st.info("Suppression annulée.")
+                    st.session_state.confirm_delete_forme = None
+                    st.rerun()
+        else:
+            # Bouton pour déclencher la confirmation
+            if st.button("🗑️ Supprimer ce suivi", key=f"suppr_{row['id']}"):
+                st.session_state.confirm_delete_forme = row['id']
+                st.rerun()
 
-            st.divider()
+        st.divider()
 
 
 def verifier_utilisateur(numero: str):
